@@ -1,0 +1,8 @@
+# Local additions on top of the official docker-compose.yml (merged automatically by `docker compose`).
+services:
+  server:
+    volumes:
+    - ./blueprints:/blueprints/custom
+  worker:
+    volumes:
+    - ./blueprints:/blueprints/custom
