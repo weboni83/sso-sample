@@ -1,0 +1,11 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+
+# authentik runtime data / secrets
+authentik/.env
+authentik/data/
+authentik/certs/
+authentik/custom-templates/
