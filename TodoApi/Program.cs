@@ -3,16 +3,40 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<TodoDb>(opt => opt.UseInMemoryDatabase("TodoList"));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+// authentik access tokens (client_credentials) are validated locally against the provider's JWKS.
+// Settings: "authentik" section (see appsettings.Development.json / README.md).
+var authentik = builder.Configuration.GetSection("authentik");
+builder.Services
+    .AddAuthentication()
+    .AddJwtBearer(o =>
+    {
+        // e.g. http://localhost:9000/application/o/todoapi/ (issuer; discovery at <authority>.well-known/openid-configuration)
+        o.Authority = authentik["authority"];
+        // authentik sets aud = client_id of the provider that issued the token
+        o.Audience = authentik["audience"];
+        o.RequireHttpsMetadata = authentik.GetValue("requireHttpsMetadata", true);
+        // keep claim names as authentik sends them (sub, scope, azp, ...)
+        o.MapInboundClaims = false;
+    });
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(TodoScopes.Read, p => p.RequireAuthenticatedUser().RequireAssertion(c => TodoScopes.Has(c.User, TodoScopes.Read)))
+    .AddPolicy(TodoScopes.Write, p => p.RequireAuthenticatedUser().RequireAssertion(c => TodoScopes.Has(c.User, TodoScopes.Write)));
+
 var app = builder.Build();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 RouteGroupBuilder todoItems = app.MapGroup("/todoitems");
 
-todoItems.MapGet("/", GetAllTodos);
-todoItems.MapGet("/complete", GetCompleteTodos);
-todoItems.MapGet("/{id}", GetTodo);
-todoItems.MapPost("/", CreateTodo);
-todoItems.MapPut("/{id}", UpdateTodo);
-todoItems.MapDelete("/{id}", DeleteTodo);
+todoItems.MapGet("/", GetAllTodos).RequireAuthorization(TodoScopes.Read);
+todoItems.MapGet("/complete", GetCompleteTodos).RequireAuthorization(TodoScopes.Read);
+todoItems.MapGet("/{id}", GetTodo).RequireAuthorization(TodoScopes.Read);
+todoItems.MapPost("/", CreateTodo).RequireAuthorization(TodoScopes.Write);
+todoItems.MapPut("/{id}", UpdateTodo).RequireAuthorization(TodoScopes.Write);
+todoItems.MapDelete("/{id}", DeleteTodo).RequireAuthorization(TodoScopes.Write);
 
 app.Run();
 
@@ -73,4 +97,16 @@ static async Task<IResult> DeleteTodo(int id, TodoDb db)
     }
 
     return TypedResults.NotFound();
+}
+
+// authentik puts the granted scopes into a single space-separated "scope" claim.
+static class TodoScopes
+{
+    public const string Read = "todo:read";
+    public const string Write = "todo:write";
+
+    public static bool Has(System.Security.Claims.ClaimsPrincipal user, string scope) =>
+        user.FindAll("scope")
+            .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .Contains(scope);
 }

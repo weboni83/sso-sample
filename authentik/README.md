@@ -32,12 +32,16 @@ docker compose down -v     # DB 볼륨까지 삭제 (초기화)
 | 파일 | 만드는 것 |
 |---|---|
 | [sociallogins.yaml](blueprints/sociallogins.yaml) | OAuth2/OIDC Provider + Application `sociallogins`, 테스트 사용자 `demo` |
+| [todoapi.yaml](blueprints/todoapi.yaml) | client_credentials 전용 Provider + Application `todoapi`, scope `todo:read`/`todo:write`, 서비스 계정 `svc-todo-client`와 App Password(= API 키) |
+
+`.env`에 새 값을 추가했다면 컨테이너가 다시 읽도록 `docker compose up -d --force-recreate server worker` 후 blueprint를 적용합니다.
 
 Windows 바인드 마운트에서는 파일 변경 감지가 잘 안 되므로, 수정 후에는 직접 적용합니다.
 
 ```bash
 # Git Bash에서는 경로 변환을 막아야 함 (MSYS_NO_PATHCONV=1)
 docker compose exec worker ak apply_blueprint custom/sociallogins.yaml
+docker compose exec worker ak apply_blueprint custom/todoapi.yaml
 ```
 
 > blueprint로 OAuth2 Provider를 만들 때는 `grant_types`를 반드시 적어야 합니다. 비어 있으면 authorize 요청이 `invalid_request` ("Invalid grant_type for provider")로 거절됩니다.

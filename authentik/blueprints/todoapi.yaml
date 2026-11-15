@@ -1,0 +1,74 @@
+# TodoApi as an OAuth2 resource server, called server-to-server (client_credentials).
+# The "API key" is an app password of the service account svc-todo-client:
+#   POST /application/o/token/  grant_type=client_credentials client_id=todoapi
+#        username=svc-todo-client password=<TODOAPI_CALLER_KEY> scope="todo:read todo:write"
+# Secrets come from .env (TODOAPI_CLIENT_SECRET, TODOAPI_CALLER_KEY).
+version: 1
+metadata:
+  name: sso-sample - TodoApi
+  labels:
+    blueprints.goauthentik.io/description: client_credentials provider, scopes and service account for TodoApi
+entries:
+- model: authentik_providers_oauth2.scopemapping
+  id: scope-todo-read
+  identifiers:
+    managed: sso-sample/todoapi/scope-todo-read
+  attrs:
+    name: "TodoApi: todo:read"
+    scope_name: todo:read
+    description: Read todo items
+    expression: return {}
+- model: authentik_providers_oauth2.scopemapping
+  id: scope-todo-write
+  identifiers:
+    managed: sso-sample/todoapi/scope-todo-write
+  attrs:
+    name: "TodoApi: todo:write"
+    scope_name: todo:write
+    description: Create, update and delete todo items
+    expression: return {}
+
+- model: authentik_providers_oauth2.oauth2provider
+  id: todoapi-provider
+  identifiers:
+    name: TodoApi
+  attrs:
+    authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+    invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+    client_type: confidential
+    client_id: todoapi
+    client_secret: !Env TODOAPI_CLIENT_SECRET
+    grant_types:
+    - client_credentials
+    redirect_uris: []
+    signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+    access_token_validity: minutes=5
+    property_mappings:
+    - !KeyOf scope-todo-read
+    - !KeyOf scope-todo-write
+
+- model: authentik_core.application
+  identifiers:
+    slug: todoapi
+  attrs:
+    name: TodoApi
+    provider: !KeyOf todoapi-provider
+
+- model: authentik_core.user
+  id: svc-todo-client
+  identifiers:
+    username: svc-todo-client
+  attrs:
+    name: TodoApi caller (service account)
+    type: service_account
+    path: users/sso-sample
+
+- model: authentik_core.token
+  identifiers:
+    identifier: svc-todo-client-key
+  attrs:
+    intent: app_password
+    user: !KeyOf svc-todo-client
+    key: !Env TODOAPI_CALLER_KEY
+    expiring: false
+    description: API key used by server-to-server TodoApi callers
