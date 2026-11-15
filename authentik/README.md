@@ -9,9 +9,10 @@ cp .env.example .env   # PG_PASS, AUTHENTIK_SECRET_KEY 에 랜덤 값 입력
 docker compose up -d
 ```
 
-첫 기동 시 DB 마이그레이션과 blueprint 적용에 몇 분 걸립니다. 끝나면 아래 주소에서 관리자(`akadmin`) 비밀번호를 설정합니다.
+첫 기동 시 DB 마이그레이션과 blueprint 적용에 몇 분 걸립니다. 끝나면 관리자(`akadmin`) 비밀번호를 설정합니다.
 
-- 초기 설정: http://localhost:9000/if/flow/initial-setup/ (끝 `/` 필수)
+- 초기 설정: **http://localhost:9000/ (루트)** 로 접속하면 설정 화면으로 이동합니다.
+  `/if/flow/initial-setup/`으로 바로 들어가면 "Access the authentik setup by navigating to http://localhost:9000/" 로 거부됩니다(2026.x부터 루트에서 시작한 세션만 허용). 이미 거부 화면을 본 브라우저는 시크릿 창을 쓰거나 localhost 쿠키를 지운 뒤 루트로 다시 접속하세요.
 - 관리 화면: http://localhost:9000/if/admin/
 - HTTPS(자체 서명): https://localhost:9443
 
